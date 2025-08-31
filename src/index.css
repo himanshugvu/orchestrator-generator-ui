@@ -10,9 +10,10 @@ body {
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #f8f9fa;
+  background: #ffffff;
   color: #333;
   line-height: 1.6;
+  min-height: 100vh;
 }
 
 code {
@@ -29,18 +30,18 @@ code {
 .header {
   text-align: center;
   margin-bottom: 3rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #ffb3d9;
   padding: 3rem 2rem;
   border-radius: 12px;
   color: white;
-  box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 4px 20px rgba(255, 179, 217, 0.3);
 }
 
 .header h1 {
   font-size: 2.5rem;
   font-weight: 700;
   margin-bottom: 1rem;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  color: white;
 }
 
 .header p {
@@ -48,6 +49,7 @@ code {
   opacity: 0.95;
   max-width: 600px;
   margin: 0 auto;
+  color: white;
 }
 
 .main-content {
@@ -123,8 +125,8 @@ code {
 .form-group select:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #2196f3;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
 }
 
 .form-group input::placeholder {
@@ -142,13 +144,13 @@ code {
 }
 
 .strategy-option:hover {
-  border-color: #667eea;
-  background: #f0f2ff;
+  border-color: #2196f3;
+  background: #f0f8ff;
 }
 
 .strategy-option.selected {
-  border-color: #667eea;
-  background: #e8f0ff;
+  border-color: #2196f3;
+  background: #e3f2fd;
 }
 
 .strategy-option input[type="radio"] {
@@ -178,7 +180,7 @@ code {
 }
 
 .btn {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #4caf50;
   color: white;
   border: none;
   padding: 1rem 2.5rem;
@@ -194,8 +196,9 @@ code {
 }
 
 .btn:hover {
+  background: #45a049;
   transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 10px 25px rgba(76, 175, 80, 0.3);
 }
 
 .btn:disabled {
@@ -206,12 +209,12 @@ code {
 }
 
 .btn-secondary {
-  background: #6c757d;
+  background: #2196f3;
 }
 
 .btn-secondary:hover {
-  background: #5a6268;
-  box-shadow: 0 10px 25px rgba(108, 117, 125, 0.3);
+  background: #1976d2;
+  box-shadow: 0 10px 25px rgba(33, 150, 243, 0.3);
 }
 
 .success-message {
@@ -267,7 +270,7 @@ code {
   padding: 1rem;
   background: #f8f9fa;
   border-radius: 8px;
-  border-left: 4px solid #667eea;
+  border-left: 4px solid #2196f3;
 }
 
 .subsection h4 {

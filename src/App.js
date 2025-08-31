@@ -34,18 +34,18 @@ function App() {
   const databaseStrategies = [
     {
       value: 'ATOMIC_OUTBOX',
-      label: 'AtomicOutbox',
-      description: 'Receive messages in batches, bulk insert into DB, commit to Kafka within the same transaction boundary. Transform event and send to Kafka asynchronously. After success, update DB with transformed payload and status = SUCCESS.'
+      label: '🔄 AtomicOutbox',
+      description: '🔄 TRANSACTIONAL OUTBOX PATTERN\n\n• Receive messages in batches\n• Bulk insert into database\n• Commit to Kafka within same transaction\n• Transform and send asynchronously\n• Update DB with success status\n\nBest for: High consistency requirements'
     },
     {
       value: 'AUDIT_PERSIST',
-      label: 'DualPersist',
-      description: 'Receive message, transform, and send to Kafka. On success: asynchronously save (source message, transformed message, status=SUCCESS). On failure: synchronously save (source message, empty destination if transform fails, error code, error message, status=FAILED).'
+      label: '📊 DualPersist',
+      description: '📊 DEFENSIVE PERSISTENCE PATTERN\n\n• Receive, transform, and send immediately\n• On SUCCESS: Async save (source + transformed)\n• On FAILURE: Sync save (source + error details)\n• Complete audit trail maintained\n\nBest for: Audit and compliance requirements'
     },
     {
       value: 'FAIL_SAFE',
-      label: 'FailSafe',
-      description: 'Receive message, transform, and send to Kafka. Persist only on failure (transformation or publish error).'
+      label: '🛡️ FailSafe',
+      description: '🛡️ FAILURE-ONLY PERSISTENCE PATTERN\n\n• Receive message and transform\n• Send to Kafka immediately\n• Persist ONLY on failures\n• Minimal database overhead\n\nBest for: High performance, low storage'
     }
   ];
 
@@ -393,8 +393,8 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
   return (
     <div className="container">
       <div className="header">
-        <h1>Orchestrator Project Generator</h1>
-        <p>Create Spring Boot orchestrator applications with Kafka integration and database adapters</p>
+        <h1>🚀 Orchestrator Project Generator</h1>
+        <p>✨ Create Spring Boot orchestrator applications with Kafka integration and database adapters</p>
       </div>
 
       {message && (
@@ -425,7 +425,7 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
       <div className="main-content">
         <div className="left-panel">
           <div className="section">
-            <h3>Project Configuration</h3>
+            <h3>⚙️ Project Configuration</h3>
             <div className="form-group">
               <label htmlFor="applicationName">Application Name *</label>
               <input
@@ -451,7 +451,7 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
           </div>
 
           <div className="section">
-            <h3>Domain Configuration</h3>
+            <h3>🌐 Domain Configuration</h3>
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="domainTopic">Topic *</label>
@@ -489,7 +489,7 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
           </div>
 
           <div className="section">
-            <h3>Interface Configuration</h3>
+            <h3>🔌 Interface Configuration</h3>
             <div className="form-row">
               <div className="form-group">
                 <label htmlFor="interfaceTopic">Topic *</label>
@@ -518,7 +518,7 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
 
         <div className="right-panel">
           <div className="section">
-            <h3>Database Configuration</h3>
+            <h3>🗄️ Database Configuration</h3>
             <div className="form-group">
               <label htmlFor="databaseUri">Database URI *</label>
               <input
@@ -565,7 +565,7 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
           </div>
 
           <div className="section">
-            <h3>Server Configuration</h3>
+            <h3>🖥️ Server Configuration</h3>
             <div className="form-group">
               <label htmlFor="serverPort">Server Port</label>
               <input
@@ -581,8 +581,8 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
       </div>
 
       <div className="generate-section">
-        <h3>Generate Project</h3>
-        <p>Preview the generated files or download your orchestrator project as a ZIP file.</p>
+        <h3>🎯 Generate Project</h3>
+        <p>✨ Preview the generated files or download your orchestrator project as a ZIP file.</p>
         
         <div className="button-group">
           <button
@@ -590,7 +590,7 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
             onClick={generatePreview}
             disabled={!isFormValid()}
           >
-            Preview Files
+            👁️ Preview Files
           </button>
           
           <button
@@ -604,7 +604,7 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
                 Generating Project...
               </>
             ) : (
-              'Generate & Download Project'
+              '🚀 Generate & Download Project'
             )}
           </button>
         </div>
