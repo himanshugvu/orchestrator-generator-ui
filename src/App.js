@@ -393,7 +393,7 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
   return (
     <div className="container">
       <div className="header">
-        <h1>🚀 Orchestrator Project Generator</h1>
+        <h1>🚀 Event Adapter Project Initializer</h1>
         <p>✨ Create Spring Boot orchestrator applications with Kafka integration and database adapters</p>
       </div>
 

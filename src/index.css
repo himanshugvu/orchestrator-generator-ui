@@ -30,11 +30,11 @@ code {
 .header {
   text-align: center;
   margin-bottom: 3rem;
-  background: #ffb3d9;
+  background: #b09baf;
   padding: 3rem 2rem;
   border-radius: 12px;
   color: white;
-  box-shadow: 0 4px 20px rgba(255, 179, 217, 0.3);
+  box-shadow: 0 4px 20px rgba(176, 155, 175, 0.3);
 }
 
 .header h1 {
