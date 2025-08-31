@@ -244,6 +244,318 @@ public class ${className} implements MessageTransformer {
 }`;
   };
 
+  // 1. Manifest YAML (in deploy folder)
+  const generateManifestYaml = () => {
+    const { applicationName } = formData;
+    const artifactId = applicationName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    
+    return `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ${artifactId}-config
+  namespace: default
+data:
+  application.name: "${applicationName}"
+  kafka.bootstrap.servers: "${formData.domain.bootstrapServers}"
+  database.uri: "${formData.database.uri}"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${artifactId}-deployment
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ${artifactId}
+  template:
+    metadata:
+      labels:
+        app: ${artifactId}
+    spec:
+      containers:
+      - name: ${artifactId}
+        image: ${artifactId}:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: SPRING_PROFILES_ACTIVE
+          value: "kubernetes"`;
+  };
+
+  // 2. Config YAML
+  const generateConfigYaml = () => {
+    const { applicationName, databaseType } = formData;
+    
+    return `# Configuration for ${applicationName}
+application:
+  name: "${applicationName}"
+  version: "1.0.0"
+
+database:
+  type: "${databaseType}"
+  uri: "${formData.database.uri}"
+  name: "${formData.database.database}"
+  strategy: "${formData.database.strategy}"
+
+kafka:
+  consumer:
+    topic: "${formData.domain.topic}"
+    groupId: "${formData.domain.groupId}"
+    bootstrapServers: "${formData.domain.bootstrapServers}"
+  producer:
+    topic: "${formData.interface.topic}"
+    bootstrapServers: "${formData.interface.bootstrapServers}"
+
+server:
+  port: ${formData.spring.serverPort}`;
+  };
+
+  // 3. Dockerfile
+  const generateDockerfile = () => {
+    const { applicationName } = formData;
+    const artifactId = applicationName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    
+    return `FROM openjdk:21-jdk-slim
+
+WORKDIR /app
+
+# Copy the JAR file
+COPY target/${artifactId}-1.0.0.jar app.jar
+
+# Copy configuration files
+COPY config.yaml ./config/
+COPY deploy/manifest.yaml ./deploy/
+
+# Expose port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \\
+  CMD curl -f http://localhost:8080/actuator/health || exit 1
+
+# Run the application
+ENTRYPOINT ["java", "-jar", "app.jar"]`;
+  };
+
+  // 4. Functional Test Groovy
+  const generateFunctionalTestGroovy = () => {
+    const { applicationName } = formData;
+    const className = applicationName.replace(/[^a-zA-Z0-9]/g, '') + 'FunctionalTest';
+    
+    return `import spock.lang.Specification
+import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.test.context.ActiveProfiles
+import org.springframework.beans.factory.annotation.Autowired
+
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ActiveProfiles("test")
+class ${className} extends Specification {
+
+    @Autowired
+    private TestRestTemplate restTemplate
+
+    def "should start application context"() {
+        when: "application starts"
+        def response = restTemplate.getForEntity("/actuator/health", String.class)
+        
+        then: "health endpoint should be accessible"
+        response.statusCode.value() == 200
+        response.body.contains("UP")
+    }
+
+    def "should process message correctly"() {
+        given: "a test message"
+        def testMessage = "test-message-123"
+        
+        when: "message is processed"
+        def response = restTemplate.postForEntity("/api/process", testMessage, String.class)
+        
+        then: "message should be processed successfully"
+        response.statusCode.value() == 200
+    }
+}`;
+  };
+
+  // 5. Jenkinsfile
+  const generateJenkinsfile = () => {
+    const { applicationName } = formData;
+    const artifactId = applicationName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    
+    return `pipeline {
+    agent any
+    
+    environment {
+        APPLICATION_NAME = '${applicationName}'
+        ARTIFACT_ID = '${artifactId}'
+        DOCKER_IMAGE = '${artifactId}:latest'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                sh 'mvn clean compile'
+            }
+        }
+        
+        stage('Test') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+        
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv('SonarQube') {
+                    sh 'mvn sonar:sonar'
+                }
+            }
+        }
+        
+        stage('Package') {
+            steps {
+                sh 'mvn package -DskipTests'
+            }
+        }
+        
+        stage('Docker Build') {
+            steps {
+                script {
+                    docker.build(DOCKER_IMAGE)
+                }
+            }
+        }
+        
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh 'kubectl apply -f deploy/manifest.yaml'
+            }
+        }
+    }
+    
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}`;
+  };
+
+  // 6. Settings XML
+  const generateSettingsXml = () => {
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 
+          http://maven.apache.org/xsd/settings-1.0.0.xsd">
+
+    <localRepository>\${user.home}/.m2/repository</localRepository>
+    
+    <mirrors>
+        <mirror>
+            <id>central-mirror</id>
+            <name>Central Repository Mirror</name>
+            <url>https://repo1.maven.org/maven2</url>
+            <mirrorOf>central</mirrorOf>
+        </mirror>
+    </mirrors>
+    
+    <profiles>
+        <profile>
+            <id>default</id>
+            <repositories>
+                <repository>
+                    <id>central</id>
+                    <name>Central Repository</name>
+                    <url>https://repo1.maven.org/maven2</url>
+                </repository>
+            </repositories>
+        </profile>
+    </profiles>
+    
+    <activeProfiles>
+        <activeProfile>default</activeProfile>
+    </activeProfiles>
+</settings>`;
+  };
+
+  // 7. Sonar Project Properties
+  const generateSonarProjectProperties = () => {
+    const { applicationName } = formData;
+    const artifactId = applicationName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    
+    return `# SonarQube configuration for ${applicationName}
+sonar.projectKey=${artifactId}
+sonar.projectName=${applicationName}
+sonar.projectVersion=1.0.0
+
+# Source code location
+sonar.sources=src/main/java
+sonar.tests=src/test/java
+
+# Java version
+sonar.java.source=21
+
+# Coverage reports
+sonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+
+# Exclude patterns
+sonar.exclusions=**/generated/**,**/target/**,**/test/**
+
+# Quality Gate
+sonar.qualitygate.wait=true`;
+  };
+
+  // 8. SDLC2Map Groovy (in vars folder)
+  const generateSdlc2MapGroovy = () => {
+    const { applicationName } = formData;
+    const artifactId = applicationName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    
+    return `#!/usr/bin/env groovy
+
+def call(String stage = 'build') {
+    def stages = [
+        'build': [
+            'name': 'Build',
+            'steps': ['mvn clean compile', 'mvn package -DskipTests']
+        ],
+        'test': [
+            'name': 'Test',
+            'steps': ['mvn test', 'mvn jacoco:report']
+        ],
+        'quality': [
+            'name': 'Quality Check',
+            'steps': ['mvn sonar:sonar']
+        ],
+        'deploy': [
+            'name': 'Deploy',
+            'steps': ['docker build -t ${artifactId}:latest .', 'kubectl apply -f deploy/manifest.yaml']
+        ]
+    ]
+    
+    def currentStage = stages[stage]
+    if (!currentStage) {
+        error "Unknown stage: \${stage}"
+    }
+    
+    echo "Executing \${currentStage.name} stage for ${applicationName}"
+    
+    currentStage.steps.each { step ->
+        sh step
+    }
+    
+    echo "\${currentStage.name} stage completed successfully"
+}`;
+  };
+
   const generatePreview = () => {
     const { applicationName, databaseType } = formData;
     const artifactId = applicationName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
@@ -293,7 +605,17 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
       'src/main/resources/application.yml': generateApplicationYml(),
       [`src/main/java/com/orchestrator/example/${packageName}/${applicationName.replace(/[^a-zA-Z0-9]/g, '')}OrchestratorApplication.java`]: generateMainApplication(),
       [`src/main/java/com/orchestrator/example/${packageName}/transformer/${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.java`]: generateMessageTransformer(),
-      'README.md': readmeContent
+      'README.md': readmeContent,
+      
+      // NEW FILES - Add your new files here
+      'deploy/manifest.yaml': generateManifestYaml(),
+      'config.yaml': generateConfigYaml(),
+      'Dockerfile': generateDockerfile(),
+      'functionalTest.groovy': generateFunctionalTestGroovy(),
+      'Jenkinsfile': generateJenkinsfile(),
+      'settings.xml': generateSettingsXml(),
+      'sonar-project.properties': generateSonarProjectProperties(),
+      'vars/sdlc2Map.groovy': generateSdlc2MapGroovy()
     };
 
     setPreviewFiles(files);
@@ -326,6 +648,24 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
 
       // Add message transformer
       transformerFolder.file(`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.java`, generateMessageTransformer());
+
+      // NEW FILES - Add your new files here
+      // Create folders first
+      const deployFolder = zip.folder('deploy');
+      const varsFolder = zip.folder('vars');
+      const configMapFolder = zip.folder('configMap'); // Empty folder
+
+      // Add files to folders
+      deployFolder.file('manifest.yaml', generateManifestYaml());
+      varsFolder.file('sdlc2Map.groovy', generateSdlc2MapGroovy());
+
+      // Add files to root
+      zip.file('config.yaml', generateConfigYaml());
+      zip.file('Dockerfile', generateDockerfile());
+      zip.file('functionalTest.groovy', generateFunctionalTestGroovy());
+      zip.file('Jenkinsfile', generateJenkinsfile());
+      zip.file('settings.xml', generateSettingsXml());
+      zip.file('sonar-project.properties', generateSonarProjectProperties());
 
       // Add README.md
       const readme = `# ${applicationName}
