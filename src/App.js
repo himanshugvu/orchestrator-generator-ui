@@ -4,6 +4,9 @@ import { saveAs } from 'file-saver';
 import './App.css';
 
 function App() {
+  // ============================================================================
+  // STATE MANAGEMENT
+  // ============================================================================
   const [formData, setFormData] = useState({
     applicationName: '',
     databaseType: 'mongo',
@@ -17,38 +20,23 @@ function App() {
       bootstrapServers: 'localhost:9092'
     },
     database: {
-      strategy: 'ATOMIC_OUTBOX',
       uri: '',
-      database: ''
+      database: '',
+      strategy: 'validate'
     },
     spring: {
-      serverPort: '8080'
+      serverPort: 8080
     }
   });
 
+  const [previewFiles, setPreviewFiles] = useState({});
+  const [showPreview, setShowPreview] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [message, setMessage] = useState('');
-  const [showPreview, setShowPreview] = useState(false);
-  const [previewFiles, setPreviewFiles] = useState({});
 
-  const databaseStrategies = [
-    {
-      value: 'ATOMIC_OUTBOX',
-      label: '🔄 AtomicOutbox',
-      description: '🔄 TRANSACTIONAL OUTBOX PATTERN\n\n• Receive messages in batches\n• Bulk insert into database\n• Commit to Kafka within same transaction\n• Transform and send asynchronously\n• Update DB with success status\n\nBest for: High consistency requirements'
-    },
-    {
-      value: 'AUDIT_PERSIST',
-      label: '📊 DualPersist',
-      description: '📊 DEFENSIVE PERSISTENCE PATTERN\n\n• Receive, transform, and send immediately\n• On SUCCESS: Async save (source + transformed)\n• On FAILURE: Sync save (source + error details)\n• Complete audit trail maintained\n\nBest for: Audit and compliance requirements'
-    },
-    {
-      value: 'FAIL_SAFE',
-      label: '🛡️ FailSafe',
-      description: '🛡️ FAILURE-ONLY PERSISTENCE PATTERN\n\n• Receive message and transform\n• Send to Kafka immediately\n• Persist ONLY on failures\n• Minimal database overhead\n\nBest for: High performance, low storage'
-    }
-  ];
-
+  // ============================================================================
+  // EVENT HANDLERS
+  // ============================================================================
   const handleInputChange = (section, field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -59,31 +47,30 @@ function App() {
     }));
   };
 
-  const handleApplicationNameChange = (value) => {
+  const handleNestedInputChange = (section, subsection, field, value) => {
     setFormData(prev => ({
       ...prev,
-      applicationName: value,
-      database: {
-        ...prev.database,
-        database: value
+      [section]: {
+        ...prev[section],
+        [subsection]: {
+          ...prev[section][subsection],
+          [field]: value
+        }
       }
     }));
   };
 
-  const handleStrategyChange = (strategy) => {
-    setFormData(prev => ({
-      ...prev,
-      database: {
-        ...prev.database,
-        strategy: strategy
-      }
-    }));
-  };
+  // ============================================================================
+  // FILE GENERATION FUNCTIONS
+  // ============================================================================
 
+  /**
+   * Generates Maven POM XML with all necessary dependencies
+   */
   const generatePomXml = () => {
     const { applicationName, databaseType } = formData;
     const artifactId = applicationName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
-    const className = applicationName.replace(/[^a-zA-Z0-9]/g, '') + 'OrchestratorApplication';
+    const packageName = artifactId.replace(/-/g, '');
     
     return `<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
@@ -91,52 +78,98 @@ function App() {
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
          http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    
+
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>3.3.5</version>
         <relativePath/>
     </parent>
-    
+
     <groupId>com.orchestrator.example</groupId>
     <artifactId>${artifactId}</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>
+
     <name>${applicationName}</name>
-    <description>Generated orchestrator application using orchestrator-core-adapter and orchestrator-${databaseType}-adapter</description>
-    
+    <description>Generated orchestrator application for ${applicationName}</description>
+
     <properties>
         <java.version>21</java.version>
-        <db.type>${databaseType}</db.type>
+        <orchestrator.version>1.0.0</orchestrator.version>
     </properties>
-    
+
     <dependencies>
+        <!-- Spring Boot Starters -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Orchestrator Adapters -->
         <dependency>
             <groupId>com.orchestrator</groupId>
             <artifactId>orchestrator-core-adapter</artifactId>
-            <version>1.0.0</version>
+            <version>\${orchestrator.version}</version>
         </dependency>
         <dependency>
             <groupId>com.orchestrator</groupId>
-            <artifactId>orchestrator-\${db.type}-adapter</artifactId>
-            <version>1.0.0</version>
+            <artifactId>orchestrator-${databaseType}-adapter</artifactId>
+            <version>\${orchestrator.version}</version>
         </dependency>
+
+        <!-- Database Dependencies -->
+        ${databaseType === 'mongo' ? `
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-mongodb</artifactId>
+        </dependency>` : `
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>`}
+
+        <!-- Test Dependencies -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.spockframework</groupId>
+            <artifactId>spock-core</artifactId>
+            <version>2.3-groovy-4.0</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.spockframework</groupId>
+            <artifactId>spock-spring</artifactId>
+            <version>2.3-groovy-4.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
-    
+
     <build>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
-                <version>3.3.5</version>
                 <configuration>
-                    <mainClass>com.orchestrator.example.${artifactId.replace(/-/g, '')}.${className}</mainClass>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
                 </configuration>
             </plugin>
             <plugin>
@@ -154,6 +187,9 @@ function App() {
 </project>`;
   };
 
+  /**
+   * Generates Spring Boot application.yml configuration
+   */
   const generateApplicationYml = () => {
     const { applicationName, domain, interface: interfaceConfig, database, spring, databaseType } = formData;
     
@@ -181,6 +217,9 @@ spring:
     port: ${spring.serverPort}`;
   };
 
+  /**
+   * Generates main Spring Boot application class
+   */
   const generateMainApplication = () => {
     const { applicationName } = formData;
     const className = applicationName.replace(/[^a-zA-Z0-9]/g, '') + 'OrchestratorApplication';
@@ -200,6 +239,9 @@ public class ${className} {
 }`;
   };
 
+  /**
+   * Generates message transformer class
+   */
   const generateMessageTransformer = () => {
     const { applicationName } = formData;
     const className = applicationName.replace(/[^a-zA-Z0-9]/g, '') + 'MessageTransformer';
@@ -244,7 +286,13 @@ public class ${className} implements MessageTransformer {
 }`;
   };
 
-  // 1. Manifest YAML (in deploy folder)
+  // ============================================================================
+  // ADDITIONAL FILE GENERATION FUNCTIONS
+  // ============================================================================
+
+  /**
+   * Generates Kubernetes deployment manifest
+   */
   const generateManifestYaml = () => {
     const { applicationName } = formData;
     const artifactId = applicationName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
@@ -285,7 +333,9 @@ spec:
           value: "kubernetes"`;
   };
 
-  // 2. Config YAML
+  /**
+   * Generates application configuration file
+   */
   const generateConfigYaml = () => {
     const { applicationName, databaseType } = formData;
     
@@ -313,7 +363,9 @@ server:
   port: ${formData.spring.serverPort}`;
   };
 
-  // 3. Dockerfile
+  /**
+   * Generates Docker container configuration
+   */
   const generateDockerfile = () => {
     const { applicationName } = formData;
     const artifactId = applicationName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
@@ -340,7 +392,9 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \\
 ENTRYPOINT ["java", "-jar", "app.jar"]`;
   };
 
-  // 4. Functional Test Groovy
+  /**
+   * Generates functional test file
+   */
   const generateFunctionalTestGroovy = () => {
     const { applicationName } = formData;
     const className = applicationName.replace(/[^a-zA-Z0-9]/g, '') + 'FunctionalTest';
@@ -379,7 +433,9 @@ class ${className} extends Specification {
 }`;
   };
 
-  // 5. Jenkinsfile
+  /**
+   * Generates Jenkins CI/CD pipeline
+   */
   const generateJenkinsfile = () => {
     const { applicationName } = formData;
     const artifactId = applicationName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
@@ -449,7 +505,9 @@ class ${className} extends Specification {
 }`;
   };
 
-  // 6. Settings XML
+  /**
+   * Generates Maven settings configuration
+   */
   const generateSettingsXml = () => {
     return `<?xml version="1.0" encoding="UTF-8"?>
 <settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
@@ -487,7 +545,9 @@ class ${className} extends Specification {
 </settings>`;
   };
 
-  // 7. Sonar Project Properties
+  /**
+   * Generates SonarQube configuration
+   */
   const generateSonarProjectProperties = () => {
     const { applicationName } = formData;
     const artifactId = applicationName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
@@ -514,7 +574,9 @@ sonar.exclusions=**/generated/**,**/target/**,**/test/**
 sonar.qualitygate.wait=true`;
   };
 
-  // 8. SDLC2Map Groovy (in vars folder)
+  /**
+   * Generates Jenkins shared library for SDLC stages
+   */
   const generateSdlc2MapGroovy = () => {
     const { applicationName } = formData;
     const artifactId = applicationName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
@@ -556,6 +618,13 @@ def call(String stage = 'build') {
 }`;
   };
 
+  // ============================================================================
+  // PREVIEW AND GENERATION FUNCTIONS
+  // ============================================================================
+
+  /**
+   * Generates preview of all files
+   */
   const generatePreview = () => {
     const { applicationName, databaseType } = formData;
     const artifactId = applicationName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
@@ -607,7 +676,7 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
       [`src/main/java/com/orchestrator/example/${packageName}/transformer/${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.java`]: generateMessageTransformer(),
       'README.md': readmeContent,
       
-      // NEW FILES - Add your new files here
+      // Additional files
       'deploy/manifest.yaml': generateManifestYaml(),
       'config.yaml': generateConfigYaml(),
       'Dockerfile': generateDockerfile(),
@@ -622,6 +691,9 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
     setShowPreview(true);
   };
 
+  /**
+   * Generates and downloads the complete project ZIP
+   */
   const generateProject = async () => {
     setIsGenerating(true);
     setMessage('');
@@ -637,20 +709,13 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
       const srcMainResources = zip.folder('src/main/resources');
       const transformerFolder = srcMainJava.folder('transformer');
 
-      // Add pom.xml
+      // Add core files
       zip.file('pom.xml', generatePomXml());
-
-      // Add application.yml
       srcMainResources.file('application.yml', generateApplicationYml());
-
-      // Add main application class
       srcMainJava.file(`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}OrchestratorApplication.java`, generateMainApplication());
-
-      // Add message transformer
       transformerFolder.file(`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.java`, generateMessageTransformer());
 
-      // NEW FILES - Add your new files here
-      // Create folders first
+      // Create additional folders
       const deployFolder = zip.folder('deploy');
       const varsFolder = zip.folder('vars');
       const configMapFolder = zip.folder('configMap'); // Empty folder
@@ -721,6 +786,9 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
     }
   };
 
+  // ============================================================================
+  // UTILITY FUNCTIONS
+  // ============================================================================
   const isFormValid = () => {
     return formData.applicationName.trim() !== '' &&
            formData.domain.topic.trim() !== '' &&
@@ -730,6 +798,9 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
            formData.database.database.trim() !== '';
   };
 
+  // ============================================================================
+  // RENDER
+  // ============================================================================
   return (
     <div className="container">
       <div className="header">
@@ -738,84 +809,75 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
       </div>
 
       {message && (
-        <div className={`${message.includes('Error') ? 'error-message' : 'success-message'}`}>
+        <div className={`message ${message.includes('Error') ? 'error' : 'success'}`}>
           {message}
         </div>
       )}
 
-      {showPreview && (
-        <div className="preview-modal">
-          <div className="preview-content">
-            <div className="preview-header">
-              <h3>Generated Files Preview</h3>
-              <button onClick={() => setShowPreview(false)} className="close-btn">×</button>
-            </div>
-            <div className="preview-files">
-              {Object.entries(previewFiles).map(([filename, content]) => (
-                <div key={filename} className="preview-file">
-                  <h4>{filename}</h4>
-                  <pre><code>{content}</code></pre>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="main-content">
-        <div className="left-panel">
+      <div className="form-container">
+        <form onSubmit={(e) => e.preventDefault()}>
+          {/* Application Configuration */}
           <div className="section">
-            <h3>⚙️ Project Configuration</h3>
+            <h2>📋 Application Configuration</h2>
             <div className="form-group">
               <label htmlFor="applicationName">Application Name *</label>
               <input
                 type="text"
                 id="applicationName"
                 value={formData.applicationName}
-                onChange={(e) => handleApplicationNameChange(e.target.value)}
-                placeholder="e.g., example-payment-orchestrator"
+                onChange={(e) => handleInputChange('applicationName', '', e.target.value)}
+                placeholder="e.g., PaymentProcessor"
+                required
               />
             </div>
-
             <div className="form-group">
-              <label htmlFor="databaseType">Database Type *</label>
+              <label htmlFor="databaseType">Database Type</label>
               <select
                 id="databaseType"
                 value={formData.databaseType}
-                onChange={(e) => setFormData(prev => ({ ...prev, databaseType: e.target.value }))}
+                onChange={(e) => handleInputChange('databaseType', '', e.target.value)}
               >
                 <option value="mongo">MongoDB</option>
                 <option value="postgres">PostgreSQL</option>
               </select>
             </div>
+            <div className="form-group">
+              <label htmlFor="serverPort">Server Port</label>
+              <input
+                type="number"
+                id="serverPort"
+                value={formData.spring.serverPort}
+                onChange={(e) => handleInputChange('spring', 'serverPort', parseInt(e.target.value))}
+                placeholder="8080"
+              />
+            </div>
           </div>
 
+          {/* Domain Configuration */}
           <div className="section">
-            <h3>🌐 Domain Configuration</h3>
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="domainTopic">Topic *</label>
-                <input
-                  type="text"
-                  id="domainTopic"
-                  value={formData.domain.topic}
-                  onChange={(e) => handleInputChange('domain', 'topic', e.target.value)}
-                  placeholder="e.g., payment-input-topic"
-                />
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="domainGroupId">Group ID *</label>
-                <input
-                  type="text"
-                  id="domainGroupId"
-                  value={formData.domain.groupId}
-                  onChange={(e) => handleInputChange('domain', 'groupId', e.target.value)}
-                  placeholder="e.g., payment-orchestrator-group"
-                />
-              </div>
+            <h2>🌐 Domain Configuration (Kafka Consumer)</h2>
+            <div className="form-group">
+              <label htmlFor="domainTopic">Topic *</label>
+              <input
+                type="text"
+                id="domainTopic"
+                value={formData.domain.topic}
+                onChange={(e) => handleInputChange('domain', 'topic', e.target.value)}
+                placeholder="e.g., payment-events"
+                required
+              />
             </div>
-
+            <div className="form-group">
+              <label htmlFor="groupId">Group ID *</label>
+              <input
+                type="text"
+                id="groupId"
+                value={formData.domain.groupId}
+                onChange={(e) => handleInputChange('domain', 'groupId', e.target.value)}
+                placeholder="e.g., payment-processor-group"
+                required
+              />
+            </div>
             <div className="form-group">
               <label htmlFor="domainBootstrapServers">Bootstrap Servers</label>
               <input
@@ -828,37 +890,35 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
             </div>
           </div>
 
+          {/* Interface Configuration */}
           <div className="section">
-            <h3>🔌 Interface Configuration</h3>
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="interfaceTopic">Topic *</label>
-                <input
-                  type="text"
-                  id="interfaceTopic"
-                  value={formData.interface.topic}
-                  onChange={(e) => handleInputChange('interface', 'topic', e.target.value)}
-                  placeholder="e.g., payment-output-topic"
-                />
-              </div>
-              
-              <div className="form-group">
-                <label htmlFor="interfaceBootstrapServers">Bootstrap Servers</label>
-                <input
-                  type="text"
-                  id="interfaceBootstrapServers"
-                  value={formData.interface.bootstrapServers}
-                  onChange={(e) => handleInputChange('interface', 'bootstrapServers', e.target.value)}
-                  placeholder="localhost:9092"
-                />
-              </div>
+            <h2>🔌 Interface Configuration (Kafka Producer)</h2>
+            <div className="form-group">
+              <label htmlFor="interfaceTopic">Topic *</label>
+              <input
+                type="text"
+                id="interfaceTopic"
+                value={formData.interface.topic}
+                onChange={(e) => handleInputChange('interface', 'topic', e.target.value)}
+                placeholder="e.g., processed-payments"
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="interfaceBootstrapServers">Bootstrap Servers</label>
+              <input
+                type="text"
+                id="interfaceBootstrapServers"
+                value={formData.interface.bootstrapServers}
+                onChange={(e) => handleInputChange('interface', 'bootstrapServers', e.target.value)}
+                placeholder="localhost:9092"
+              />
             </div>
           </div>
-        </div>
 
-        <div className="right-panel">
+          {/* Database Configuration */}
           <div className="section">
-            <h3>🗄️ Database Configuration</h3>
+            <h2>🗄️ Database Configuration</h2>
             <div className="form-group">
               <label htmlFor="databaseUri">Database URI *</label>
               <input
@@ -866,10 +926,10 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
                 id="databaseUri"
                 value={formData.database.uri}
                 onChange={(e) => handleInputChange('database', 'uri', e.target.value)}
-                placeholder={formData.databaseType === 'mongo' ? 'mongodb://localhost:27017/payment-orchestrator' : 'jdbc:postgresql://localhost:5432/payment_orchestrator'}
+                placeholder={formData.databaseType === 'mongo' ? 'mongodb://localhost:27017' : 'jdbc:postgresql://localhost:5432'}
+                required
               />
             </div>
-
             <div className="form-group">
               <label htmlFor="databaseName">Database Name *</label>
               <input
@@ -877,78 +937,65 @@ Edit the \`${applicationName.replace(/[^a-zA-Z0-9]/g, '')}MessageTransformer.jav
                 id="databaseName"
                 value={formData.database.database}
                 onChange={(e) => handleInputChange('database', 'database', e.target.value)}
-                placeholder={formData.databaseType === 'mongo' ? 'payment-orchestrator' : 'payment_orchestrator'}
+                placeholder="e.g., paymentdb"
+                required
               />
             </div>
-
             <div className="form-group">
-              <label>Database Strategy *</label>
-              {databaseStrategies.map((strategy) => (
-                <div 
-                  key={strategy.value}
-                  className={`strategy-option ${formData.database.strategy === strategy.value ? 'selected' : ''}`}
-                  onClick={() => handleStrategyChange(strategy.value)}
-                >
-                  <input
-                    type="radio"
-                    id={strategy.value}
-                    name="strategy"
-                    value={strategy.value}
-                    checked={formData.database.strategy === strategy.value}
-                    onChange={() => handleStrategyChange(strategy.value)}
-                  />
-                  <label htmlFor={strategy.value}>{strategy.label}</label>
-                  <div className="strategy-description">{strategy.description}</div>
+              <label htmlFor="databaseStrategy">Database Strategy</label>
+              <select
+                id="databaseStrategy"
+                value={formData.database.strategy}
+                onChange={(e) => handleInputChange('database', 'strategy', e.target.value)}
+              >
+                <option value="validate">Validate</option>
+                <option value="create">Create</option>
+                <option value="create-drop">Create-Drop</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="actions">
+            <button
+              type="button"
+              onClick={generatePreview}
+              disabled={!isFormValid()}
+              className="preview-btn"
+            >
+              👁️ Preview Files
+            </button>
+            <button
+              type="button"
+              onClick={generateProject}
+              disabled={!isFormValid() || isGenerating}
+              className="generate-btn"
+            >
+              {isGenerating ? '⏳ Generating...' : '📦 Generate Project'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Preview Modal */}
+      {showPreview && (
+        <div className="preview-modal">
+          <div className="preview-content">
+            <div className="preview-header">
+              <h2>📄 Generated Files Preview</h2>
+              <button onClick={() => setShowPreview(false)} className="close-btn">×</button>
+            </div>
+            <div className="preview-files">
+              {Object.entries(previewFiles).map(([filename, content]) => (
+                <div key={filename} className="file-preview">
+                  <h3>{filename}</h3>
+                  <pre>{content}</pre>
                 </div>
               ))}
             </div>
           </div>
-
-          <div className="section">
-            <h3>🖥️ Server Configuration</h3>
-            <div className="form-group">
-              <label htmlFor="serverPort">Server Port</label>
-              <input
-                type="text"
-                id="serverPort"
-                value={formData.spring.serverPort}
-                onChange={(e) => handleInputChange('spring', 'serverPort', e.target.value)}
-                placeholder="8080"
-              />
-            </div>
-          </div>
         </div>
-      </div>
-
-      <div className="generate-section">
-        <h3>🎯 Generate Project</h3>
-        <p>✨ Preview the generated files or download your orchestrator project as a ZIP file.</p>
-        
-        <div className="button-group">
-          <button
-            className="btn btn-secondary"
-            onClick={generatePreview}
-            disabled={!isFormValid()}
-          >
-            👁️ Preview Files
-          </button>
-          
-          <button
-            className="btn"
-            onClick={generateProject}
-            disabled={!isFormValid() || isGenerating}
-          >
-            {isGenerating ? (
-              <>
-                <span className="loading"></span>
-                Generating Project...
-              </>
-            ) : (
-              '🚀 Generate & Download Project'
-            )}
-          </button>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
